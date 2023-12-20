@@ -10,11 +10,9 @@ import io
 import base64
 from IPython.display import display, HTML
 
-
 # Define image size
 IMG_SIZE = (224, 224)
 DISPLAY_WIDTH = 150  # Adjust this value to set the desired width of the displayed images
-
 
 # Load MobileNetV2 model pre-trained on ImageNet
 base_model = MobileNetV2(weights='imagenet', include_top=False)
@@ -23,25 +21,15 @@ x = GlobalAveragePooling2D()(x)
 x = Dense(1024, activation='relu')(x)
 predictions = Dense(1, activation='sigmoid')(x)
 model = Model(inputs=base_model.input, outputs=predictions)
-
-
-# Initialize empty lists for healthy and unhealthy images
-healthy_images = []
-unhealthy_images = []
-
-
-# Counters for accuracy calculation
-total_images = 0
-correct_predictions = 0
-
+#pmpgowthami2k4
+# Initialize empty lists for all images
+all_images = []
 
 # Function to handle file selection
 def handle_file_selection(files):
-    global total_images, correct_predictions
-    for file in files:
+    for file, img_data in files.items():
         # Get the image data directly
         img_data = files[file]
-
 
         # Pre-process the image
         img = Image.open(io.BytesIO(img_data))
@@ -50,62 +38,42 @@ def handle_file_selection(files):
         img = preprocess_input(img)
         img = np.expand_dims(img, axis=0)
 
-
         # Predict the health of the banana leaf
         prediction = model.predict(img)[0][0]
 
+        # Debugging information
+        print(f"File: {file}, Prediction: {prediction}")
 
-        # Classify the image based on prediction
-        label = "Healthy" if prediction > 0.5 else "Unhealthy"
+        # Classify the image based on the predicted label
+        predicted_label = "Healthy" if prediction < 0.5 else "Unhealthy"
 
+        # Calculate the confidence of the prediction
+        confidence = prediction if predicted_label == "Healthy" else 1 - prediction
 
-        # Increment counters
-        total_images += 1
-        if (label == "Healthy" and "healthy" in file.lower()) or (label == "Unhealthy" and "unhealthy" in file.lower()):
-            correct_predictions += 1
-
-
-        # Append the file name, label, prediction, and image to the corresponding list
-        if label == "Healthy":
-            healthy_images.append((file, img_data, prediction))
-        else:
-            unhealthy_images.append((file, img_data, prediction))
-
+        # Append the file name, predicted label, and image to the corresponding list
+        all_images.append((file, img_data, predicted_label, confidence))
 
 # Use a simple file selection widget
 from google.colab import files
-#pmpgowthami
 
 uploaded = files.upload()
 
-
 # Process selected files
-for filename in uploaded.keys():
-    handle_file_selection({filename: uploaded[filename]})  # Pass a dictionary with filename and content
+handle_file_selection(uploaded)  # Pass the entire uploaded dictionary
 
-
-# Display results
-html_output = "<h2>Healthy Banana Leaves:</h2>"
-for image_info in healthy_images:
-    # Display image using HTML representation under the Healthy section
+# Display results for all images
+html_output = "<h2>All Banana Leaves:</h2>"
+for image_info in all_images:
     encoded_image = base64.b64encode(image_info[1]).decode("utf-8")
-    prediction = image_info[2]
+    predicted_label = image_info[2]
+    confidence = image_info[3]
     html_output += (
         f"<img src='data:image/webp;base64,{encoded_image}' style='width:{DISPLAY_WIDTH}px;' /> "
-        f"<span style='font-size:12px;'>Prediction: {prediction:.2f}</span><br>"
+        f"<span style='font-size:12px;'>Predicted Label: {predicted_label}, Confidence: {confidence:.2%}</span><br>"
     )
 
-
-html_output += f"<h2>Unhealthy Banana Leaves (Accuracy: {correct_predictions/total_images*100:.2f}%):</h2>"
-for image_info in unhealthy_images:
-    # Display image using HTML representation under the Unhealthy section
-    encoded_image = base64.b64encode(image_info[1]).decode("utf-8")
-    prediction = image_info[2]
-    html_output += (
-        f"<img src='data:image/webp;base64,{encoded_image}' style='width:{DISPLAY_WIDTH}px;' /> "
-        f"<span style='font-size:12px;'>Prediction: {prediction:.2f}</span><br>"
-    )
-
+# Display the HTML output
+display(HTML(html_output))
 
 # Display the HTML output
 display(HTML(html_output))
